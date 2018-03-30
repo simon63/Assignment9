@@ -1,0 +1,76 @@
+---
+title: "DATA 607 - Assignment 9 [Web APIs]"
+author: "Simon U."
+date: "March 29, 2018"
+output: html_document
+params:
+  api_key: Enter NYTimes API Key
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r lib, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(httr)
+library(jsonlite)
+api.key <- params$api_key
+```
+
+####Create an R wrapper funciton for NYTimes Article Search API
+#####The function will search Travel section and news desk for articles matching given query term word(s), such as a country name, for example.  It is designed to return a data frame with 5 columns:  
+1.  headline
+2.  publication date
+3.  web url
+4.  snippet  
+```{r nyt_search_function, warning=FALSE}
+nytimes.articleSearch.on.travel <- function(api_key = NA, qryTermTravelPlace = "New York", begin_date = "yyyymmdd", end_date = "yyyymmdd") {
+  baseUrl <- "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+  
+  baseUrlParam <- URLencode(
+    sprintf("?fq=section_name:(\"Travel\") OR news_desk:(\"Travel\")&fl=%s&api-key=%s",
+            "web_url,snippet,headline,pub_date,print_page", api_key))
+  
+  qryTermParam <- URLencode(sprintf("&q=%s", qryTermTravelPlace))
+  
+  qryBeginDate <- ""
+  if (begin_date != "yyyymmdd" && !is.na(begin_date)) {
+    qryBeginDate <- sprintf("&begin_date=%s", begin_date)
+  }
+  
+  qryEndDate <- ""
+  if (end_date != "yyyymmdd" && !is.na(end_date)) {
+    qryEndDate <- sprintf("&end_date=%s", end_date)
+  }
+  
+  qryResult <- GET(paste0(baseUrl, baseUrlParam, qryTermParam, qryBeginDate, qryEndDate))
+
+  df.content <- fromJSON(content(qryResult, "text"))
+  
+  df.on.Travel <- data.frame(
+    headline = df.content[["response"]][["docs"]][["headline"]][["main"]],
+    pub_date = df.content[["response"]][["docs"]][["pub_date"]],
+    web_url = df.content[["response"]][["docs"]][["web_url"]],
+    snippet = df.content[["response"]][["docs"]][["snippet"]]
+  )
+  
+  return(df.on.Travel)
+}
+```
+
+####Test the function with different parameters and values
+```{r qry_tests, warning=FALSE}
+df.nytimes.Travel <- nytimes.articleSearch.on.travel(api.key, "Costa Rica") %>% arrange(desc(pub_date))
+kable_styling(knitr::kable(df.nytimes.Travel, "html", caption = "Travel Search Results for Costa Rica"), bootstrap_options = "striped")
+
+df.nytimes.Travel <- nytimes.articleSearch.on.travel(api.key, "Israel", begin_date = "20170601", end_date = "20170831") %>% arrange(desc(pub_date))
+kable_styling(knitr::kable(df.nytimes.Travel, "html", caption = "Travel Search Results for Israel, between June and August, 2017"), bootstrap_options = "striped")
+```
+
+
+**NYTimes Attribution Requirement**  
+*The logo must link directly to http://developer.nytimes.com *  
+
+[![](C:/Users/simus/Documents/R/R Markdown/poweredby_nytimes_200a.png)](http://developer.nytimes.com)
